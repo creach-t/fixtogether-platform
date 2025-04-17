@@ -1,0 +1,161 @@
+// Schema du MVP pour FixTogether
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  REPAIR_AMATEUR
+  REPAIR_PRO
+  ADMIN
+}
+
+enum RepairStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  profilePicture    String?
+  role              UserRole          @default(USER)
+  isVerified        Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  address           Address?
+  repairRequests    RepairRequest[]   @relation("UserRepairRequests")
+  repairOffers      RepairOffer[]     @relation("UserRepairOffers")
+  userReviews       Review[]          @relation("UserReviews")
+  repairedByReviews Review[]          @relation("RepairerReviews")
+  skills            Skill[]           @relation("UserSkills")
+  tutorialsCreated  Tutorial[]        @relation("TutorialAuthor")
+  comments          Comment[]        
+}
+
+model Address {
+  id           String  @id @default(uuid())
+  street       String?
+  city         String
+  state        String?
+  postalCode   String
+  country      String
+  latitude     Float?
+  longitude    Float?
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  description  String?
+  iconUrl      String?
+  repairRequests RepairRequest[]
+  skills       Skill[]
+  tutorials    Tutorial[]
+}
+
+model Skill {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  users       User[]    @relation("UserSkills")
+}
+
+model RepairRequest {
+  id           String         @id @default(uuid())
+  title        String
+  description  String
+  photos       String[]       // URLs to photos
+  videos       String[]       // URLs to videos
+  categoryId   String
+  category     Category       @relation(fields: [categoryId], references: [id])
+  userId       String
+  user         User           @relation("UserRepairRequests", fields: [userId], references: [id])
+  status       RepairStatus   @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  offers       RepairOffer[]
+  location     Json?          // latitude, longitude, address
+  impact       ImpactMetric?
+}
+
+model RepairOffer {
+  id              String       @id @default(uuid())
+  repairRequestId String
+  repairRequest   RepairRequest @relation(fields: [repairRequestId], references: [id])
+  repairerId      String
+  repairer        User         @relation("UserRepairOffers", fields: [repairerId], references: [id])
+  price           Float?
+  message         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  isAccepted      Boolean      @default(false)
+  reviews         Review[]
+}
+
+model Review {
+  id              String       @id @default(uuid())
+  repairOfferId   String
+  repairOffer     RepairOffer  @relation(fields: [repairOfferId], references: [id])
+  userId          String
+  user            User         @relation("UserReviews", fields: [userId], references: [id])
+  repairerId      String
+  repairer        User         @relation("RepairerReviews", fields: [repairerId], references: [id])
+  rating          Int
+  comment         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model ImpactMetric {
+  id              String        @id @default(uuid())
+  repairRequestId String        @unique
+  repairRequest   RepairRequest @relation(fields: [repairRequestId], references: [id])
+  co2Saved        Float?
+  wasteSaved      Float?
+  resourcesSaved  Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Tutorial {
+  id              String        @id @default(uuid())
+  title           String
+  content         String
+  images          String[]
+  videoUrl        String?
+  authorId        String
+  author          User          @relation("TutorialAuthor", fields: [authorId], references: [id])
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  comments        Comment[]
+}
+
+model Comment {
+  id              String        @id @default(uuid())
+  content         String
+  tutorialId      String
+  tutorial        Tutorial      @relation(fields: [tutorialId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
